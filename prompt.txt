@@ -1,0 +1,45 @@
+> The following prompt was used to create index.html using Gemini 2.5 pro.
+
+# Initial prompt
+As an experienced software engineer you are tasked to implement a Web application, allowing the user to play a single-player (solitaire) card game of Scoundrel. The rules of the game are attached <upload the rules.pdf file>.
+
+Please, implement the Game UI. The game should support two screens. When opened, the "Game menu" screen should be shown, that has a simple logo and the ability to click either of the two buttons - "Start game" and "Help".
+
+Once "Start game" is clicked, the second, main game page is shown. The main page should show the deck, with the image of the card background and the word "Enter next room", prompting the user to enter the room. To the right of the deck there should be four slots for the "room" cards (initially empty), a slot for the "weapon", and a field that shows the current health, initialized to 20.
+
+At this stage the user may only click the "enter room" button, which must perform the "new room" action as described below.
+
+New room action:
+- New room action is caused by the user clicking the "Enter next room" button, shown on the main deck.
+- New room deals cards to the room slots from the deck:
+- At the beginning of the game or after a "skip room" step, four cards are dealt to fill the slots.
+- For every next room the last remaining card from the previous room is positioned on the first leftmost slot and three new cards are dealt onto the remaining slots. If the deck has less than three cards remaining, all remaining cards are dealt onto the slots.
+- The button "skip room" is shown, allowing the user to skip the room (Skip room actions described below).
+- The cards on the room slots are annotated with possible actions by enabling buttons shown underneath:
+- Any card that is hearts has the button "drink potion".
+- Any card that is diamonds has the button "equip".
+- Any card that is clubs or spades has two buttons under it: "Fight barehanded" and "Fight with equipment". The latter is enabled only if fighting with equipment is possible (rule below).
+
+Skip room action:
+- If skip room action is chosen, the cards from the room slots are shuffled randomly onto the bottom of the deck. Then a "new room" action is invoked with the only difference, that no "skip room" option is shown (rules prohibit skipping two rooms in a row).
+
+Whenever the player chooses any action under the cards, the "skip room" button must disappear (because the player chose to enter the room). When the player uses three out of the four cards in the room, the "Enter new room" button must appear on the deck, unless the deck is empty. If the player has used all the cards in the room slots, the deck is empty and its life total is above 0, the "You Win" message must appear.
+
+Drink potion action:
+- When the player clicks "drink potion" under a card, the card is removed, and the health meter of the player is increased by the value of the card (2-10 for numeric cards). The health value is clamped to 20 (I.e. never goes above this).
+
+Equip action.
+- When the player clicks the "equip" action (under a diamonds card), the "equipment" slot is cleared along with all the monster cards under it, and the chosen card is positioned there.
+
+Fight barehanded action:
+- When the player chooses the "Fight barehanded" action, the card is removed and player's health is decreased by the value of the card (2-10 for numeric cards, 11-13 for Jack, Queen, King, 14 for Ace). If health goes to 0 or below, a "You Lose" message is shown with a button prompting to go to the "start screen".
+
+Fight with equipment action:
+- This action is only available for a monster card in the room slot, when an equipment slot has a card and the value of the last monster fought with that equipment is higher than the value of the monster card. When clicked:
+- The monster card is moved from the room slot on a slot under the equipment as the "last monster fought". The health of the player is decreased by max(0, <value of monster> - <value of equipment>).
+
+# Follow-up comment
+I tried clicking "Enter next room" and nothing happened.
+
+> This resulted in a working solution. Other follow-ups are submitted as individual commits.
+
