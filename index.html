@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoundrel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .font-title {
+            font-family: 'IM Fell English SC', serif;
+        }
+        .card {
+            width: 100px;
+            height: 140px;
+            border-radius: 8px;
+            background-color: #2d3748;
+            border: 2px solid #4a5568;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 8px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease-in-out;
+        }
+        .card:hover:not(.empty-slot) {
+            transform: translateY(-5px);
+        }
+        .card.empty-slot {
+            background-color: rgba(0,0,0,0.2);
+            border: 2px dashed #4a5568;
+        }
+        .card-back {
+            background-image: url('https://i.pinimg.com/736x/8f/3a/48/8f3a483e08a543a79a55988a09a25cc8.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+        .card .suit {
+            height: 20px;
+            width: 20px;
+        }
+        .card.hearts, .card.diamonds { color: #f56565; }
+        .card.spades, .card.clubs { color: #e2e8f0; }
+
+        .action-button {
+            background-color: #4a5568;
+            color: #e2e8f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-top: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .action-button:hover:not(:disabled) {
+            background-color: #718096;
+        }
+        .action-button:disabled {
+            background-color: #2d3748;
+            color: #718096;
+            cursor: not-allowed;
+        }
+        .message-box {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div id="app" class="w-full max-w-7xl mx-auto p-4">
+        <!-- Menu Screen -->
+        <div id="menu-screen">
+            <div class="text-center">
+                <h1 class="font-title text-8xl mb-4">Scoundrel</h1>
+                <p class="text-xl text-slate-400 mb-8">A Solitaire Roguelike by Zach Gage and Kurt Bieg</p>
+                <div class="space-x-4">
+                    <button id="start-game-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg text-xl">Start Game</button>
+                    <button id="help-btn" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-lg text-xl">Help</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Main Game Area -->
+                <div class="md:col-span-3">
+                    <div class="flex items-start space-x-4">
+                        <!-- Deck -->
+                        <div class="flex flex-col items-center space-y-2">
+                            <div id="deck" class="card w-32 h-44 flex items-center justify-center text-center">
+                            </div>
+                             <p id="deck-count" class="text-sm text-slate-400">52 cards</p>
+                        </div>
+                        <!-- Room -->
+                        <div class="flex-1">
+                            <h2 class="font-title text-2xl mb-2">Current Room</h2>
+                            <div id="room-slots" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <!-- Room card slots will be generated here -->
+                                <div class="card empty-slot w-full"></div>
+                                <div class="card empty-slot w-full"></div>
+                                <div class="card empty-slot w-full"></div>
+                                <div class="card empty-slot w-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="mt-4 flex justify-center">
+                        <button id="skip-room-btn" class="hidden bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded">Skip Room</button>
+                    </div>
+                </div>
+
+                <!-- Player Info Panel -->
+                <div class="md:col-span-1 bg-slate-800/50 p-4 rounded-lg">
+                    <h2 class="font-title text-2xl border-b border-slate-600 pb-2 mb-4">Adventurer</h2>
+                    <!-- Health -->
+                    <div>
+                        <h3 class="font-semibold text-lg">Health</h3>
+                        <div class="w-full bg-red-900 rounded-full h-6">
+                            <div id="health-bar" class="bg-red-500 h-6 rounded-full text-center text-white font-bold" style="width: 100%;">20</div>
+                        </div>
+                    </div>
+                    <!-- Weapon -->
+                    <div class="mt-4">
+                        <h3 class="font-semibold text-lg mb-2">Weapon</h3>
+                        <div id="weapon-slot" class="card empty-slot w-full h-44"></div>
+                        <div id="monsters-slain-slot" class="mt-2 space-y-[-110px]">
+                            <!-- Slain monster cards will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Message Box -->
+        <div id="message-box" class="hidden message-box">
+             <div class="bg-slate-800 p-8 rounded-lg text-center shadow-2xl">
+                <h2 id="message-title" class="font-title text-5xl mb-4"></h2>
+                <p id="message-text" class="text-lg mb-6"></p>
+                <button id="message-ok-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-lg">OK</button>
+             </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const app = document.getElementById('app');
+            const menuScreen = document.getElementById('menu-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const startGameBtn = document.getElementById('start-game-btn');
+            const helpBtn = document.getElementById('help-btn');
+            const deckElement = document.getElementById('deck');
+            const deckCountElement = document.getElementById('deck-count');
+            const roomSlotsContainer = document.getElementById('room-slots');
+            const healthBar = document.getElementById('health-bar');
+            const weaponSlot = document.getElementById('weapon-slot');
+            const monstersSlainSlot = document.getElementById('monsters-slain-slot');
+            const skipRoomBtn = document.getElementById('skip-room-btn');
+            
+            const messageBox = document.getElementById('message-box');
+            const messageTitle = document.getElementById('message-title');
+            const messageText = document.getElementById('message-text');
+            const messageOkBtn = document.getElementById('message-ok-btn');
+
+            // --- Game State ---
+            let state = {};
+
+            // --- Game Constants ---
+            const SUITS = { '♠': 'spades', '♣': 'clubs', '♥': 'hearts', '♦': 'diamonds' };
+            const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const MAX_HEALTH = 20;
+
+            // --- Card Helper Functions ---
+            const getCardValue = (rank) => {
+                if (RANKS.indexOf(rank) <= 8) return parseInt(rank);
+                if (rank === 'J') return 11;
+                if (rank === 'Q') return 12;
+                if (rank === 'K') return 13;
+                if (rank === 'A') return 14;
+                return 0;
+            };
+
+            const createCardElement = (card) => {
+                if (!card) {
+                    const empty = document.createElement('div');
+                    empty.className = 'card empty-slot w-full';
+                    return empty;
+                }
+                const cardDiv = document.createElement('div');
+                cardDiv.className = `card w-full ${SUITS[card.suit]}`;
+                cardDiv.dataset.card = `${card.rank}-${card.suit}`;
+                
+                const rankTop = document.createElement('div');
+                rankTop.className = 'text-left';
+                rankTop.textContent = card.rank;
+
+                const suitIcon = document.createElement('div');
+                suitIcon.className = 'text-center text-4xl';
+                suitIcon.textContent = card.suit;
+
+                const rankBottom = document.createElement('div');
+                rankBottom.className = 'text-right transform rotate-180';
+                rankBottom.textContent = card.rank;
+                
+                cardDiv.appendChild(rankTop);
+                cardDiv.appendChild(suitIcon);
+                cardDiv.appendChild(rankBottom);
+                
+                return cardDiv;
+            };
+
+            // --- Game Logic ---
+            
+            /**
+             * Initializes a new game from scratch
+             */
+            const initGame = () => {
+                const fullDeck = [];
+                for (const suit of Object.keys(SUITS)) {
+                    for (const rank of RANKS) {
+                        fullDeck.push({ rank, suit, value: getCardValue(rank) });
+                    }
+                }
+
+                // Filter out red face cards (J,Q,K) and red Aces
+                const scoundrelDeck = fullDeck.filter(card => {
+                    const isRed = card.suit === '♥' || card.suit === '♦';
+                    const isFaceOrAce = ['J', 'Q', 'K', 'A'].includes(card.rank);
+                    return !(isRed && isFaceOrAce);
+                });
+                
+                // Shuffle the deck
+                for (let i = scoundrelDeck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [scoundrelDeck[i], scoundrelDeck[j]] = [scoundrelDeck[j], scoundrelDeck[i]];
+                }
+
+                state = {
+                    deck: scoundrelDeck,
+                    room: [],
+                    weapon: null,
+                    monstersSlain: [],
+                    health: MAX_HEALTH,
+                    canSkip: true,
+                    isGameOver: false,
+                    turnsInRoom: 0,
+                };
+            };
+            
+            /**
+             * Renders the entire game UI based on the current state
+             */
+            const render = () => {
+                // Update Health
+                healthBar.style.width = `${Math.max(0, state.health / MAX_HEALTH) * 100}%`;
+                healthBar.textContent = state.health;
+
+                // Update Deck
+                deckCountElement.textContent = `${state.deck.length} cards left`;
+                
+                // The "Enter Next Room" button is active at the start (room is empty) or after 3 actions.
+                const isRoomFinished = state.turnsInRoom === 3;
+                const isGameStart = state.room.length === 0;
+
+                if (!state.isGameOver && (isGameStart || isRoomFinished) && state.deck.length > 0) {
+                    deckElement.innerHTML = `<span class="font-title text-xl text-white p-2">Enter Next<br>Room</span>`;
+                    deckElement.classList.add('cursor-pointer', 'card-back');
+                    deckElement.onclick = handleNewRoom;
+                } else {
+                    deckElement.innerHTML = ``;
+                    deckElement.classList.remove('cursor-pointer');
+                    deckElement.onclick = null;
+                    // Show card back if deck is not empty
+                    if (state.deck.length > 0) {
+                        deckElement.classList.add('card-back');
+                    } else {
+                        deckElement.classList.remove('card-back');
+                    }
+                }
+                
+                // Update Room
+                roomSlotsContainer.innerHTML = '';
+                for (let i = 0; i < 4; i++) {
+                    const cardContainer = document.createElement('div');
+                    cardContainer.className = 'flex flex-col items-center';
+                    const card = state.room[i];
+                    const cardEl = createCardElement(card);
+                    cardContainer.appendChild(cardEl);
+
+                    if (card && !state.isGameOver) {
+                        const actionsDiv = document.createElement('div');
+                        actionsDiv.className = 'mt-2 space-y-1 w-full';
+                        
+                        // Add action buttons based on card type
+                        if (card.suit === '♥') { // Potion
+                           const btn = createActionButton('Drink Potion', () => handleDrinkPotion(card, i));
+                           actionsDiv.appendChild(btn);
+                        } else if (card.suit === '♦') { // Weapon
+                           const btn = createActionButton('Equip', () => handleEquip(card, i));
+                           actionsDiv.appendChild(btn);
+                        } else { // Monster
+                           const btnBarehand = createActionButton('Fight Barehanded', () => handleFight(card, i, false));
+                           actionsDiv.appendChild(btnBarehand);
+                           
+                           const btnWeapon = createActionButton('Fight with Weapon', () => handleFight(card, i, true));
+                           const lastSlainValue = state.monstersSlain.length > 0 ? state.monstersSlain[0].value : Infinity;
+                           btnWeapon.disabled = !state.weapon || card.value >= lastSlainValue;
+                           actionsDiv.appendChild(btnWeapon);
+                        }
+                        cardContainer.appendChild(actionsDiv);
+                    }
+                    roomSlotsContainer.appendChild(cardContainer);
+                }
+
+                // Update Weapon
+                weaponSlot.innerHTML = '';
+                if (state.weapon) {
+                    weaponSlot.classList.remove('empty-slot');
+                    weaponSlot.appendChild(createCardElement(state.weapon));
+                } else {
+                    weaponSlot.classList.add('empty-slot');
+                }
+
+                // Update Monsters Slain
+                monstersSlainSlot.innerHTML = '';
+                state.monstersSlain.forEach(monster => {
+                    monstersSlainSlot.appendChild(createCardElement(monster));
+                });
+                
+                // Update Skip Button
+                if(state.canSkip && state.turnsInRoom === 0 && state.room.length === 4){
+                    skipRoomBtn.classList.remove('hidden');
+                } else {
+                    skipRoomBtn.classList.add('hidden');
+                }
+                
+                // Check win/loss conditions (only if not already over)
+                if(state.isGameOver) return;
+                
+                if (state.health <= 0) {
+                    state.health = 0; // Prevent negative health display
+                    endGame(false);
+                } else if (state.deck.length === 0 && state.room.every(c => !c)) {
+                    endGame(true);
+                }
+            };
+            
+            const createActionButton = (text, onClick) => {
+                const btn = document.createElement('button');
+                btn.textContent = text;
+                btn.className = 'action-button w-full text-center';
+                btn.onclick = onClick;
+                return btn;
+            };
+            
+            const showMessage = (title, text, onOk) => {
+                messageTitle.textContent = title;
+                messageText.textContent = text;
+                messageBox.classList.remove('hidden');
+                messageOkBtn.onclick = () => {
+                    messageBox.classList.add('hidden');
+                    if(onOk) onOk();
+                };
+            };
+            
+            // --- Action Handlers ---
+            const handleStartNewGame = () => {
+                menuScreen.classList.add('hidden');
+                gameScreen.classList.remove('hidden');
+                initGame();
+                render();
+            };
+
+            const handleNewRoom = () => {
+                 // Keep the last card if one exists
+                 const remainingCard = state.room.find(c => c !== null);
+                 state.room = [remainingCard].filter(Boolean); // Clear room but keep remaining card
+                 
+                 // Deal new cards
+                 const cardsToDeal = 4 - state.room.length;
+                 for (let i = 0; i < cardsToDeal && state.deck.length > 0; i++) {
+                     state.room.push(state.deck.shift());
+                 }
+                 
+                 state.canSkip = true; // Can skip a new room
+                 state.turnsInRoom = 0;
+                 render();
+            };
+            
+            const handleSkipRoom = () => {
+                if(!state.canSkip) return;
+                
+                // Take room cards and shuffle them to bottom of deck
+                const roomCards = state.room.filter(c => c);
+                state.room = [];
+                // Simple shuffle to bottom by adding to the end of the deck array
+                state.deck.push(...roomCards);
+                
+                state.canSkip = false; // Cannot skip two in a row
+                handleNewRoom(); // This will deal 4 new cards
+                // Override the canSkip set by handleNewRoom, since we just skipped
+                state.canSkip = false;
+                render();
+            };
+            
+            const handlePlayerAction = (cardIndex) => {
+                state.canSkip = false; // Once an action is taken, can't skip
+                state.turnsInRoom++;
+                state.room[cardIndex] = null; // Remove card from room
+                render();
+            };
+            
+            const handleDrinkPotion = (card, index) => {
+                state.health = Math.min(MAX_HEALTH, state.health + card.value);
+                handlePlayerAction(index);
+            };
+            
+            const handleEquip = (card, index) => {
+                state.weapon = card;
+                state.monstersSlain = []; // Clear monsters slain with old weapon
+                handlePlayerAction(index);
+            };
+            
+            const handleFight = (card, index, useWeapon) => {
+                if (useWeapon && state.weapon) {
+                    const damage = Math.max(0, card.value - state.weapon.value);
+                    state.health -= damage;
+                    // Move monster to slain pile, at the beginning of the array
+                    state.monstersSlain.unshift(card); 
+                } else {
+                    state.health -= card.value;
+                }
+                handlePlayerAction(index);
+            };
+            
+            const endGame = (isWin) => {
+                state.isGameOver = true;
+                if(isWin){
+                    showMessage('You Win!', 'You have cleared the dungeon!', handleGoToMenu);
+                } else {
+                    showMessage('You Lose!', 'Your health reached zero.', handleGoToMenu);
+                }
+                render(); // Final render to update UI state
+            };
+            
+            const handleGoToMenu = () => {
+                gameScreen.classList.add('hidden');
+                menuScreen.classList.remove('hidden');
+            }
+
+
+            // --- Event Listeners ---
+            startGameBtn.addEventListener('click', handleStartNewGame);
+            helpBtn.addEventListener('click', () => {
+                showMessage('How to Play Scoundrel', 'The rules are based on the PDF by Zach Gage and Kurt Bieg. Explore the dungeon, manage your health, and defeat monsters to survive!', () => {});
+            });
+            skipRoomBtn.addEventListener('click', handleSkipRoom);
+        });
+    </script>
+</body>
+</html>
+
