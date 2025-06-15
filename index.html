@@ -147,9 +147,9 @@
         
         <!-- Message Box -->
         <div id="message-box" class="hidden message-box">
-             <div class="bg-slate-800 p-8 rounded-lg text-center shadow-2xl">
+             <div class="bg-slate-800 p-8 rounded-lg text-center shadow-2xl max-w-md">
                 <h2 id="message-title" class="font-title text-5xl mb-4"></h2>
-                <p id="message-text" class="text-lg mb-6"></p>
+                <div id="message-text" class="text-lg mb-6 text-slate-300"></div>
                 <button id="message-ok-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-lg">OK</button>
              </div>
         </div>
@@ -374,7 +374,7 @@
             
             const showMessage = (title, text, onOk) => {
                 messageTitle.textContent = title;
-                messageText.textContent = text;
+                messageText.innerHTML = text; // Use innerHTML to allow links
                 messageBox.classList.remove('hidden');
                 messageOkBtn.onclick = () => {
                     messageBox.classList.add('hidden');
@@ -471,7 +471,13 @@
             // --- Event Listeners ---
             startGameBtn.addEventListener('click', handleStartNewGame);
             helpBtn.addEventListener('click', () => {
-                showMessage('How to Play Scoundrel', 'The rules are based on the PDF by Zach Gage and Kurt Bieg. Explore the dungeon, manage your health, and defeat monsters to survive!', () => {});
+                const helpText = `
+                    <p class="mb-4">This implementation was prompted by this excellent YouTube video, which does a great job explaining the rules:</p>
+                    <a href="https://www.youtube.com/watch?v=7fP-QLtWQZs" target="_blank" class="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded hover:bg-red-500 mb-6">Watch on YouTube</a>
+                    <p class="mb-4">You can find the official rules PDF by the creators, Zach Gage and Kurt Bieg, here:</p>
+                    <a href="http://stfj.net/art/2011/Scoundrel.pdf" target="_blank" class="text-blue-400 hover:underline">Download Scoundrel.pdf</a>
+                `;
+                showMessage('How to Play', helpText, () => {});
             });
             skipRoomBtn.addEventListener('click', handleSkipRoom);
         });
