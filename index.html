@@ -21,8 +21,8 @@
             width: 100px;
             height: 140px;
             border-radius: 8px;
-            background-color: #2d3748;
-            border: 2px solid #4a5568;
+            background-color: #ffffff; /* White card face */
+            border: 1px solid #a0aec0; /* Lightened border */
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -30,7 +30,7 @@
             font-size: 1.5rem;
             font-weight: bold;
             position: relative;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transition: transform 0.2s ease-in-out;
         }
         .card:hover:not(.empty-slot) {
@@ -41,16 +41,15 @@
             border: 2px dashed #4a5568;
         }
         .card-back {
-            background-image: url('https://i.pinimg.com/736x/8f/3a/48/8f3a483e08a543a79a55988a09a25cc8.jpg');
-            background-size: cover;
-            background-position: center;
+            background-color: #2d3748; /* Dark grey background for card back */
+            border-color: #4a5568;
         }
         .card .suit {
             height: 20px;
             width: 20px;
         }
         .card.hearts, .card.diamonds { color: #f56565; }
-        .card.spades, .card.clubs { color: #e2e8f0; }
+        .card.spades, .card.clubs { color: #1a202c; } /* Black suits */
 
         .action-button {
             background-color: #4a5568;
