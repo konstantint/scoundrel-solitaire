@@ -136,7 +136,7 @@
                         <h3 class="font-semibold text-lg mb-2 text-center">Weapon</h3>
                         <div class="flex flex-col items-center">
                             <div id="weapon-slot" class="card empty-slot w-32 h-44"></div>
-                            <div id="monsters-slain-slot" class="mt-2 space-y-[-110px] w-32">
+                            <div id="monsters-slain-slot" class="mt-2 w-32 h-80 relative">
                                 <!-- Slain monster cards will appear here -->
                             </div>
                         </div>
@@ -336,8 +336,14 @@
 
                 // Update Monsters Slain
                 monstersSlainSlot.innerHTML = '';
-                state.monstersSlain.forEach(monster => {
-                    monstersSlainSlot.appendChild(createCardElement(monster));
+                const reversedMonsters = [...state.monstersSlain].reverse();
+                reversedMonsters.forEach((monster, index) => {
+                    const cardEl = createCardElement(monster);
+                    // Add styles for stacking context
+                    cardEl.style.position = 'absolute';
+                    cardEl.style.top = `${index * 35}px`; // Overlap cards vertically
+                    cardEl.style.zIndex = index; // Newer cards appear on top
+                    monstersSlainSlot.appendChild(cardEl);
                 });
                 
                 // Update Skip Button
