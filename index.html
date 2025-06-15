@@ -278,11 +278,11 @@
                 // Update Deck
                 deckCountElement.textContent = `${state.deck.length} cards left`;
                 
-                // The "Enter Next Room" button is active at the start (room is empty) or after 3 actions.
-                const isRoomFinished = state.turnsInRoom === 3;
-                const isGameStart = state.room.length === 0;
+                // The "Enter Next Room" button is active when 1 or 0 cards remain in the room.
+                const remainingCardsInRoom = state.room.filter(c => c).length;
+                const canProceed = remainingCardsInRoom <= 1;
 
-                if (!state.isGameOver && (isGameStart || isRoomFinished) && state.deck.length > 0) {
+                if (!state.isGameOver && canProceed && state.deck.length > 0) {
                     deckElement.innerHTML = `<span class="font-title text-xl text-white p-2">Enter Next<br>Room</span>`;
                     deckElement.classList.add('cursor-pointer', 'card-back');
                     deckElement.onclick = handleNewRoom;
@@ -479,4 +479,3 @@
     </script>
 </body>
 </html>
-
