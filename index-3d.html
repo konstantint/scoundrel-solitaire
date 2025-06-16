@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- UI IMPROVEMENT: Added Archivo Black font for wider, bolder button text -->
     <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Inter:wght@400;600;700&family=Roboto:wght@700&family=Archivo+Black&display=swap" rel="stylesheet">
     <!-- GSAP for animations -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
@@ -76,7 +75,7 @@
             color: #718096;
             cursor: not-allowed;
         }
-         #message-box {
+        .overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -88,7 +87,7 @@
             align-items: center;
             z-index: 100;
         }
-        #message-box.hidden {
+        .overlay.hidden {
             display: none;
         }
     </style>
@@ -97,7 +96,7 @@
 
     <div id="three-canvas-container"></div>
 
-    <!-- UI Overlay -->
+    <!-- In-Game UI -->
     <div id="ui-container">
         <!-- Top Left: Player Stats -->
         <div class="flex justify-between items-start">
@@ -114,18 +113,19 @@
                 </div>
             </div>
         </div>
-
-        <!-- Bottom Center: Game Controls -->
-        <div class="flex justify-center items-end">
-            <div id="game-controls" class="ui-element flex space-x-4">
-                 <button id="start-game-btn" class="action-button text-xl">Start Game</button>
-                 <button id="help-btn" class="action-button text-xl">Help</button>
-            </div>
+    </div>
+    
+    <!-- Start Menu Overlay -->
+    <div id="start-menu-overlay" class="overlay">
+        <div class="ui-element flex flex-col space-y-4 p-8 rounded-lg shadow-2xl">
+             <h1 class="font-title text-7xl text-center text-white mb-4">Scoundrel</h1>
+             <button id="start-game-btn" class="action-button text-2xl px-8 py-4">Start Game</button>
+             <button id="help-btn" class="action-button text-2xl px-8 py-4">Help</button>
         </div>
     </div>
     
     <!-- Message Box for Win/Loss/Help messages -->
-    <div id="message-box" class="hidden">
+    <div id="message-box" class="overlay hidden">
          <div class="bg-slate-800 p-8 rounded-lg text-center shadow-2xl max-w-md w-full mx-4">
             <h2 id="message-title" class="font-title text-5xl mb-4"></h2>
             <div id="message-text" class="text-lg mb-6 text-slate-300"></div>
@@ -356,29 +356,17 @@
                 
                 const texture = new THREE.CanvasTexture(canvas);
                 
-                // --- FIX for text scaling and distortion ---
-                const textureAspect = canvas.width / canvas.height; // e.g., 1024 / 256 = 4
+                const textureAspect = canvas.width / canvas.height;
                 const buttonAspect = size.x / size.z;
 
-                // We want the final rendered aspect ratio to match the texture's aspect ratio.
-                // To do this, we adjust the repeat values of the texture.
-                // We also want to make the text as large as possible (fit vs fill).
-                // In our case, the texture is always wider than the buttons, so we fit to height.
                 if (textureAspect > buttonAspect) {
-                    // Texture is wider than the button face.
-                    // We make the texture's height fit the button's height (repeat.y = 1).
-                    // Then we adjust repeat.x to maintain the texture's aspect ratio.
                     texture.repeat.y = 1;
                     texture.repeat.x = buttonAspect / textureAspect;
                 } else {
-                    // Texture is taller/narrower than the button face.
-                    // We make the texture's width fit the button's width (repeat.x = 1).
-                    // Then we adjust repeat.y to maintain the texture's aspect ratio.
                     texture.repeat.x = 1;
                     texture.repeat.y = textureAspect / buttonAspect;
                 }
 
-                // Center the texture within the new repeat zone.
                 texture.offset.x = (1 - texture.repeat.x) / 2;
                 texture.offset.y = (1 - texture.repeat.y) / 2;
                 
@@ -435,7 +423,7 @@
             const helpBtn = document.getElementById('help-btn');
             const healthBar = document.getElementById('health-bar');
             const deckCountElement = document.getElementById('deck-count');
-            const gameControls = document.getElementById('game-controls');
+            const startMenuOverlay = document.getElementById('start-menu-overlay');
             const messageBox = document.getElementById('message-box');
             const messageTitle = document.getElementById('message-title');
             const messageText = document.getElementById('message-text');
@@ -606,7 +594,7 @@
             }
             
             async function handleStartNewGame() {
-                gameControls.classList.add('hidden');
+                startMenuOverlay.classList.add('hidden');
 
                 ThreeScene.getCardObjects().forEach(obj => ThreeScene.getScene().remove(obj));
                 ThreeScene.getCardObjects().clear();
@@ -802,7 +790,7 @@
             }
             
             function handleGoToMenu() {
-                gameControls.classList.remove('hidden');
+                startMenuOverlay.classList.remove('hidden');
                 ThreeScene.getCardObjects().forEach(obj => ThreeScene.getScene().remove(obj));
                 ThreeScene.getCardObjects().clear();
                 gameState = {};
