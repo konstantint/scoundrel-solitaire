@@ -1,0 +1,19 @@
+> Prompt used to create the 3D version. index.html (the 2D version, prompt.txt and Scoundrel.pdf rules file were attached).
+
+You are an experienced software developer, working to implement the solitaire card game Scoundrel as a web app.
+The rules of the game are given in the attached PDF file as well as the additional instructions.
+You have an initial implementation provided in index.html.
+Your task is to change the game to provide a 3D UI using the Three.js framework.
+The game should now show a three-dimensional green table (resembling a poker one) with the deck shown as an appropriately-sized box. The room slots and the weapon slots should be shown on the table. When cards are dealt onto the room slots, the animation should show them moving from the deck. Similarly, when a monster is slain, the animation should show the respective card being moved to the discard pile (shown as a separate deck on the side) or to the weapon slot (if it was slain with a weapon).
+Please, create the new application.
+
+> Follow up fix requests:
+
+* I see some sort of a 3D rendering, but everything is overlayed with an empty message box with an OK button, but nothing happens when I click. Please, fix.
+* I still see the message box with no text and an OK button that does nothing and is overlayed over the rest of the UI. Please, remove the box.
+* Great. Just a small problem now. The cards representing monsters slain by a weapon are now completely covering the weapon card, so it's impossible to see its value. Could you position them a bit lower (in the z plane), so that the weapon value is always visible.
+* No, this didn't solve the problem. Please, shift the position of slain monster cards to be lower in the Z axis (I.e. deeper into the table).
+* No, the slain monster cards are still positioned at approximately the same height as the weapon card. Please, move them *down* on the Z axis. So far no changes have moved them on the Z axis at all (in fact, maybe it's the X axis, sorry for the confusion).
+  In addition, the Skip room button does not work, please fix.
+* The cards are currently actually standing up on the table vertically. Could you position them on the table lying down? I guess you need to rotate them 90 degrees around the X axis.
+

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoundrel 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    
+    <!-- Import Map for Three.js modules -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+            "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+        #three-canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            outline: none;
+        }
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allow clicks to pass through to the canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+        .font-title {
+            font-family: 'IM Fell English SC', serif;
+        }
+        .ui-element {
+            pointer-events: auto; /* Re-enable pointer events for UI elements */
+            background-color: rgba(26, 32, 44, 0.8);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .action-button {
+            background-color: #4a5568;
+            color: #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: none;
+        }
+        .action-button:hover:not(:disabled) {
+            background-color: #718096;
+        }
+        .action-button:disabled {
+            background-color: #2d3748;
+            color: #718096;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="three-canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-container">
+        <!-- Top Left: Player Stats -->
+        <div class="flex justify-between items-start">
+            <div class="ui-element">
+                <h2 class="font-title text-2xl border-b border-slate-600 pb-2 mb-4">Adventurer</h2>
+                <div>
+                    <h3 class="font-semibold text-lg">Health</h3>
+                    <div class="w-full bg-red-900 rounded-full h-6">
+                        <div id="health-bar" class="bg-red-500 h-6 rounded-full text-center text-white font-bold" style="width: 100%;">20</div>
+                    </div>
+                </div>
+                 <div class="mt-4">
+                    <p id="deck-count" class="text-sm text-slate-400">44 cards left</p>
+                </div>
+            </div>
+             <!-- Top Right: Actions -->
+            <div id="actions-panel" class="ui-element max-w-sm hidden">
+                 <h2 class="font-title text-2xl mb-2">Actions</h2>
+                 <div id="card-actions" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Center: Game Controls -->
+        <div class="flex justify-center items-end">
+            <div id="game-controls" class="ui-element flex space-x-4">
+                 <button id="start-game-btn" class="action-button text-xl">Start Game</button>
+                 <button id="help-btn" class="action-button text-xl">Help</button>
+                 <button id="skip-room-btn" class="action-button hidden">Skip Room</button>
+                 <button id="new-room-btn" class="action-button hidden">Enter Next Room</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 
+        Message Box has been commented out to prevent the UI from locking up.
+        Win/loss messages will appear in the developer console.
+    -->
+    <!--
+    <div id="message-box" class="hidden">
+         <div class="bg-slate-800 p-8 rounded-lg text-center shadow-2xl max-w-md">
+            <h2 id="message-title" class="font-title text-5xl mb-4"></h2>
+            <div id="message-text" class="text-lg mb-6 text-slate-300"></div>
+            <button id="message-ok-btn" class="action-button">OK</button>
+         </div>
+    </div>
+    -->
+
+    <script type="module">
+        // --- Import Three.js modules ---
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+        // --- Game Logic (from original file, slightly adapted) ---
+        const GameLogic = (() => {
+            const SUITS = { '♠': 'spades', '♣': 'clubs', '♥': 'hearts', '♦': 'diamonds' };
+            const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const MAX_HEALTH = 20;
+
+            const getCardValue = (rank) => {
+                if (RANKS.indexOf(rank) <= 8) return parseInt(rank);
+                if (rank === 'J') return 11;
+                if (rank === 'Q') return 12;
+                if (rank === 'K') return 13;
+                if (rank === 'A') return 14;
+                return 0;
+            };
+
+            let state = {};
+
+            function initGame() {
+                const fullDeck = [];
+                for (const suit of Object.keys(SUITS)) {
+                    for (const rank of RANKS) {
+                        // Each card needs a unique ID for 3D object tracking
+                        fullDeck.push({ id: `${rank}-${suit}`, rank, suit, value: getCardValue(rank) });
+                    }
+                }
+
+                const scoundrelDeck = fullDeck.filter(card => {
+                    const isRed = card.suit === '♥' || card.suit === '♦';
+                    const isFaceOrAce = ['J', 'Q', 'K', 'A'].includes(card.rank);
+                    return !(isRed && isFaceOrAce);
+                });
+
+                for (let i = scoundrelDeck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [scoundrelDeck[i], scoundrelDeck[j]] = [scoundrelDeck[j], scoundrelDeck[i]];
+                }
+
+                state = {
+                    deck: scoundrelDeck,
+                    room: [null, null, null, null], // Always 4 slots
+                    discard: [],
+                    weapon: null,
+                    monstersSlain: [],
+                    health: MAX_HEALTH,
+                    canSkip: true,
+                    isGameOver: false,
+                    turnsInRoom: 0,
+                };
+                return state;
+            }
+            
+            // Public API for Game Logic
+            return {
+                initGame,
+                getState: () => state,
+                getCardValue,
+                MAX_HEALTH,
+                RANKS,
+                SUITS
+            };
+        })();
+
+        // --- 3D Visualization (Three.js) ---
+        const ThreeScene = (() => {
+            let scene, camera, renderer, controls;
+            let table, deckBox;
+            const cardObjects = new Map(); // Map card.id to Three.js Object3D
+            
+            // --- Positions for game elements ---
+            const POSITIONS = {
+                DECK: new THREE.Vector3(-6, 0.1, 0),
+                DISCARD: new THREE.Vector3(6, 0.1, 0),
+                ROOM: [
+                    new THREE.Vector3(-3, 0.1, -2),
+                    new THREE.Vector3(-1, 0.1, -2),
+                    new THREE.Vector3(1, 0.1, -2),
+                    new THREE.Vector3(3, 0.1, -2),
+                ],
+                WEAPON: new THREE.Vector3(-1, 0.1, 2),
+            };
+
+            function init(containerId) {
+                const container = document.getElementById(containerId);
+                
+                // --- Scene Setup ---
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x1a202c);
+
+                // --- Camera ---
+                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(0, 8, 8);
+
+                // --- Renderer ---
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.shadowMap.enabled = true;
+                container.appendChild(renderer.domElement);
+
+                // --- Lighting ---
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(5, 10, 7.5);
+                directionalLight.castShadow = true;
+                scene.add(directionalLight);
+                
+                // --- Controls ---
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.target.set(0, 0, 0);
+                controls.update();
+
+                // --- Game Table ---
+                const tableGeometry = new THREE.PlaneGeometry(20, 15);
+                const tableMaterial = new THREE.MeshStandardMaterial({ color: 0x006400, roughness: 0.8 });
+                table = new THREE.Mesh(tableGeometry, tableMaterial);
+                table.rotation.x = -Math.PI / 2;
+                table.receiveShadow = true;
+                scene.add(table);
+                
+                // Start render loop
+                animate();
+
+                // Handle window resizing
+                window.addEventListener('resize', onWindowResize);
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            // --- Card Texture and Model Creation ---
+            function createCardTexture(card) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 358; // Aspect ratio of a standard playing card
+                const ctx = canvas.getContext('2d');
+
+                // Card background
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 5;
+                ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+                // Card text
+                const suitColor = (card.suit === '♥' || card.suit === '♦') ? '#FF0000' : '#000000';
+                ctx.fillStyle = suitColor;
+                ctx.font = 'bold 48px Inter';
+                ctx.textAlign = 'center';
+                
+                ctx.fillText(card.rank, 40, 60);
+                ctx.fillText(card.suit, 40, 110);
+
+                ctx.save();
+                ctx.translate(canvas.width, canvas.height);
+                ctx.rotate(Math.PI);
+                ctx.fillText(card.rank, 40, 60);
+                ctx.fillText(card.suit, 40, 110);
+                ctx.restore();
+
+                return new THREE.CanvasTexture(canvas);
+            }
+
+            function createCardBackTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 358;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#2d3748';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#718096';
+                ctx.lineWidth = 15;
+                ctx.strokeRect(0, 0, canvas.width, canvas.height);
+                return new THREE.CanvasTexture(canvas);
+            }
+            
+            const cardBackTexture = createCardBackTexture();
+
+            function createCardObject(card) {
+                const cardWidth = 1.5;
+                const cardHeight = cardWidth * 1.4;
+                const cardDepth = 0.05;
+
+                const geometry = new THREE.BoxGeometry(cardWidth, cardHeight, cardDepth);
+                const faceTexture = createCardTexture(card);
+                
+                const materials = [
+                    new THREE.MeshStandardMaterial({ color: 0xffffff }), // right
+                    new THREE.MeshStandardMaterial({ color: 0xffffff }), // left
+                    new THREE.MeshStandardMaterial({ color: 0xffffff }), // top
+                    new THREE.MeshStandardMaterial({ color: 0xffffff }), // bottom
+                    new THREE.MeshStandardMaterial({ map: faceTexture }),   // front
+                    new THREE.MeshStandardMaterial({ map: cardBackTexture })// back
+                ];
+                
+                const cardMesh = new THREE.Mesh(geometry, materials);
+                cardMesh.castShadow = true;
+                cardMesh.userData = { card }; // Link the 3D object back to the card data
+                cardObjects.set(card.id, cardMesh);
+                return cardMesh;
+            }
+            
+            // --- Animation System ---
+            function playAnimation(animation) {
+                 return new Promise(resolve => {
+                    gsap.to(animation.target.position, {
+                        ...animation.to.position,
+                        duration: 0.5,
+                        ease: 'power2.inOut'
+                    });
+                     gsap.to(animation.target.rotation, {
+                        ...animation.to.rotation,
+                        duration: 0.5,
+                        ease: 'power2.inOut',
+                        onComplete: resolve
+                    });
+                 });
+            }
+
+            // --- Public Methods ---
+            return {
+                init,
+                createCardObject,
+                getScene: () => scene,
+                getCardObjects: () => cardObjects,
+                POSITIONS,
+                getCamera: () => camera,
+                getRenderer: () => renderer,
+                animateCardTo: playAnimation,
+            };
+        })();
+
+        // --- Main App Controller ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const startGameBtn = document.getElementById('start-game-btn');
+            const helpBtn = document.getElementById('help-btn');
+            const healthBar = document.getElementById('health-bar');
+            const deckCountElement = document.getElementById('deck-count');
+            const skipRoomBtn = document.getElementById('skip-room-btn');
+            const newRoomBtn = document.getElementById('new-room-btn');
+            const actionsPanel = document.getElementById('actions-panel');
+            const cardActionsContainer = document.getElementById('card-actions');
+            
+            // --- App State ---
+            let gameState = {};
+            let selectedObject = null; // Currently hovered/selected 3D card
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+
+            // --- Initialize the 3D Scene ---
+            ThreeScene.init('three-canvas-container');
+
+            function showMessage(title, text, onOk) {
+                // The message box was causing the UI to lock. It is now disabled.
+                // Messages will be logged to the console instead.
+                console.log(`--- Game Message ---`);
+                console.log(`Title: ${title}`);
+                console.log(`Text: ${text}`);
+                console.log(`--------------------`);
+
+                // Automatically proceed with the OK action (e.g., returning to menu)
+                if (onOk) {
+                    onOk();
+                }
+            }
+
+            async function renderGameState() {
+                // UI Update
+                healthBar.style.width = `${Math.max(0, gameState.health / GameLogic.MAX_HEALTH) * 100}%`;
+                healthBar.textContent = gameState.health;
+                deckCountElement.textContent = `${gameState.deck.length} cards left`;
+
+                // Control Buttons
+                const remainingCardsInRoom = gameState.room.filter(c => c).length;
+                const canProceed = remainingCardsInRoom <= 1;
+
+                newRoomBtn.classList.toggle('hidden', gameState.isGameOver || !canProceed || gameState.deck.length === 0);
+                skipRoomBtn.classList.toggle('hidden', !gameState.canSkip || gameState.turnsInRoom !== 0 || gameState.room.filter(c => c).length !== 4);
+                
+                 // Check win/loss conditions
+                if (gameState.isGameOver) return;
+
+                if (gameState.health <= 0) {
+                    gameState.health = 0;
+                    endGame(false);
+                } else if (gameState.deck.length === 0 && gameState.room.every(c => !c)) {
+                    endGame(true);
+                }
+            }
+            
+            function updateActionsPanel(card3d) {
+                if (card3d && card3d.userData.card && !gameState.isGameOver) {
+                    selectedObject = card3d;
+                    const card = card3d.userData.card;
+                    const cardIndexInRoom = gameState.room.findIndex(c => c && c.id === card.id);
+
+                    if (cardIndexInRoom === -1) { // Not a selectable room card
+                        actionsPanel.classList.add('hidden');
+                        return;
+                    }
+
+                    cardActionsContainer.innerHTML = ''; // Clear previous actions
+                    
+                    let hasActions = false;
+
+                    if (card.suit === '♥') { // Potion
+                        const btn = createActionButton('Drink Potion', () => handleDrinkPotion(card, cardIndexInRoom));
+                        cardActionsContainer.appendChild(btn);
+                        hasActions = true;
+                    } else if (card.suit === '♦') { // Weapon
+                        const btn = createActionButton('Equip', () => handleEquip(card, cardIndexInRoom));
+                        cardActionsContainer.appendChild(btn);
+                        hasActions = true;
+                    } else { // Monster
+                        const btnBarehand = createActionButton('Fight Barehanded', () => handleFight(card, cardIndexInRoom, false));
+                        cardActionsContainer.appendChild(btnBarehand);
+                        
+                        const btnWeapon = createActionButton('Fight with Weapon', () => handleFight(card, cardIndexInRoom, true));
+                        const lastSlainValue = gameState.monstersSlain.length > 0 ? gameState.monstersSlain[0].value : Infinity;
+                        btnWeapon.disabled = !gameState.weapon || card.value >= lastSlainValue;
+                        cardActionsContainer.appendChild(btnWeapon);
+                        hasActions = true;
+                    }
+
+                    actionsPanel.classList.toggle('hidden', !hasActions);
+                } else {
+                    selectedObject = null;
+                    actionsPanel.classList.add('hidden');
+                }
+            }
+
+            const createActionButton = (text, onClick) => {
+                const btn = document.createElement('button');
+                btn.textContent = text;
+                btn.className = 'action-button w-full text-center block';
+                btn.onclick = onClick;
+                return btn;
+            };
+
+            async function handlePlayerAction(cardIndex) {
+                gameState.canSkip = false;
+                gameState.turnsInRoom++;
+                
+                const card = gameState.room[cardIndex];
+                const card3d = ThreeScene.getCardObjects().get(card.id);
+
+                gameState.room[cardIndex] = null; // Remove from logical room
+                gameState.discard.push(card); // Add to logical discard
+                
+                // Animate to discard pile
+                await ThreeScene.animateCardTo({
+                    target: card3d,
+                    to: {
+                        position: { 
+                            x: ThreeScene.POSITIONS.DISCARD.x, 
+                            y: ThreeScene.POSITIONS.DISCARD.y + gameState.discard.length * 0.02, 
+                            z: ThreeScene.POSITIONS.DISCARD.z 
+                        },
+                        rotation: { y: Math.PI, x: -Math.PI / 2, z: 0 }
+                    }
+                });
+
+                updateActionsPanel(null); // Hide actions after use
+                renderGameState();
+            }
+            
+            // --- Action Handlers ---
+            async function handleStartNewGame() {
+                startGameBtn.classList.add('hidden');
+                helpBtn.classList.add('hidden');
+
+                // Clear existing cards from scene
+                ThreeScene.getCardObjects().forEach(obj => ThreeScene.getScene().remove(obj));
+                ThreeScene.getCardObjects().clear();
+
+                gameState = GameLogic.initGame();
+
+                // Create all 3D card objects and position them in the deck
+                gameState.deck.forEach((card, i) => {
+                    const card3d = ThreeScene.createCardObject(card);
+                    card3d.position.copy(ThreeScene.POSITIONS.DECK);
+                    card3d.position.y += i * 0.02; // Stack them up
+                    card3d.rotation.x = -Math.PI / 2; // Lie flat
+                    card3d.rotation.y = Math.PI; // Face down
+                    ThreeScene.getScene().add(card3d);
+                });
+                
+                await handleNewRoom();
+            }
+            
+            async function handleNewRoom() {
+                const remainingCard = gameState.room.find(c => c !== null);
+                gameState.room = [null, null, null, null];
+                
+                let animationPromises = [];
+
+                if (remainingCard) {
+                    gameState.room[0] = remainingCard;
+                    const card3d = ThreeScene.getCardObjects().get(remainingCard.id);
+                    animationPromises.push(ThreeScene.animateCardTo({
+                        target: card3d,
+                        to: {
+                            position: ThreeScene.POSITIONS.ROOM[0],
+                            rotation: { y: 0, x: -Math.PI / 2, z: 0 }
+                        }
+                    }));
+                }
+
+                const startIndex = gameState.room.filter(c => c).length;
+                const cardsToDeal = 4 - startIndex;
+
+                for (let i = 0; i < cardsToDeal && gameState.deck.length > 0; i++) {
+                    const card = gameState.deck.shift();
+                    gameState.room[startIndex + i] = card;
+                    const card3d = ThreeScene.getCardObjects().get(card.id);
+                    
+                    animationPromises.push(ThreeScene.animateCardTo({
+                        target: card3d,
+                        to: {
+                            position: ThreeScene.POSITIONS.ROOM[startIndex + i],
+                            rotation: { y: 0, x: -Math.PI / 2, z: 0 }
+                        }
+                    }));
+                }
+                
+                await Promise.all(animationPromises);
+                
+                gameState.canSkip = true;
+                gameState.turnsInRoom = 0;
+                renderGameState();
+            }
+            
+            async function handleSkipRoom() {
+                if (!gameState.canSkip) return;
+
+                gameState.canSkip = false; // Cannot skip again right away.
+
+                const roomCards = gameState.room.filter(c => c);
+                const animationPromises = [];
+
+                // Animate cards back to the deck pile
+                roomCards.forEach(card => {
+                    const card3d = ThreeScene.getCardObjects().get(card.id);
+                    animationPromises.push(ThreeScene.animateCardTo({
+                        target: card3d,
+                        to: {
+                            position: {
+                                x: ThreeScene.POSITIONS.DECK.x,
+                                y: ThreeScene.POSITIONS.DECK.y + (gameState.deck.length + roomCards.indexOf(card)) * 0.02,
+                                z: ThreeScene.POSITIONS.DECK.z
+                            },
+                            rotation: { y: Math.PI, x: -Math.PI / 2 } // Face down, flat
+                        }
+                    }));
+                });
+
+                await Promise.all(animationPromises);
+
+                // Logically move cards to the bottom of the deck
+                gameState.deck.push(...roomCards);
+                gameState.room = [null, null, null, null]; // Clear the room
+
+                // Deal a new room
+                await handleNewRoom();
+
+                // handleNewRoom sets canSkip to true, so we override it here as per rules
+                gameState.canSkip = false;
+                renderGameState(); // Update UI to hide the skip button
+            }
+            
+            async function handleDrinkPotion(card, index) {
+                gameState.health = Math.min(GameLogic.MAX_HEALTH, gameState.health + card.value);
+                await handlePlayerAction(index);
+            }
+            
+            async function handleEquip(card, index) {
+                // Discard old weapon and its monsters
+                if (gameState.weapon) {
+                    const oldWeaponCard3d = ThreeScene.getCardObjects().get(gameState.weapon.id);
+                    gameState.discard.push(gameState.weapon);
+                     await ThreeScene.animateCardTo({
+                        target: oldWeaponCard3d,
+                        to: {
+                             position: { x: ThreeScene.POSITIONS.DISCARD.x, y: ThreeScene.POSITIONS.DISCARD.y + gameState.discard.length * 0.02, z: ThreeScene.POSITIONS.DISCARD.z },
+                             rotation: { y: Math.PI, x: -Math.PI / 2 }
+                        }
+                    });
+
+                    for (const slain of gameState.monstersSlain) {
+                        const slainCard3d = ThreeScene.getCardObjects().get(slain.id);
+                        gameState.discard.push(slain);
+                         await ThreeScene.animateCardTo({
+                            target: slainCard3d,
+                            to: {
+                                position: { x: ThreeScene.POSITIONS.DISCARD.x, y: ThreeScene.POSITIONS.DISCARD.y + gameState.discard.length * 0.02, z: ThreeScene.POSITIONS.DISCARD.z },
+                                rotation: { y: Math.PI, x: -Math.PI / 2 }
+                            }
+                        });
+                    }
+                }
+                
+                // Equip new weapon
+                gameState.weapon = card;
+                gameState.monstersSlain = [];
+                const card3d = ThreeScene.getCardObjects().get(card.id);
+                gameState.room[index] = null; // Remove from logical room
+                
+                 await ThreeScene.animateCardTo({
+                    target: card3d,
+                    to: {
+                        position: ThreeScene.POSITIONS.WEAPON,
+                        rotation: { y: 0, x: -Math.PI / 2, z: 0 }
+                    }
+                });
+
+                gameState.canSkip = false;
+                gameState.turnsInRoom++;
+                updateActionsPanel(null);
+                renderGameState();
+            }
+            
+            async function handleFight(card, index, useWeapon) {
+                const card3d = ThreeScene.getCardObjects().get(card.id);
+                gameState.room[index] = null;
+                
+                if (useWeapon && gameState.weapon) {
+                    const damage = Math.max(0, card.value - gameState.weapon.value);
+                    gameState.health -= damage;
+                    gameState.monstersSlain.unshift(card);
+                    
+                    // Animate to slain monster pile
+                    await ThreeScene.animateCardTo({
+                        target: card3d,
+                        to: {
+                            position: {
+                                x: ThreeScene.POSITIONS.WEAPON.x,
+                                // Stack them vertically higher
+                                y: ThreeScene.POSITIONS.WEAPON.y + (gameState.monstersSlain.length) * 0.05, 
+                                // Stagger them along the Z axis (deeper into the table)
+                                z: ThreeScene.POSITIONS.WEAPON.z + (gameState.monstersSlain.length) * 0.4
+                            },
+                            rotation: { y: 0, x: -Math.PI / 2, z: 0 }
+                        }
+                    });
+                } else {
+                    gameState.health -= card.value;
+                    gameState.discard.push(card);
+                    // Animate to discard pile
+                     await ThreeScene.animateCardTo({
+                        target: card3d,
+                        to: {
+                           position: { x: ThreeScene.POSITIONS.DISCARD.x, y: ThreeScene.POSITIONS.DISCARD.y + gameState.discard.length * 0.02, z: ThreeScene.POSITIONS.DISCARD.z },
+                           rotation: { y: Math.PI, x: -Math.PI / 2 }
+                        }
+                    });
+                }
+                
+                gameState.canSkip = false;
+                gameState.turnsInRoom++;
+                updateActionsPanel(null);
+                renderGameState();
+            }
+
+            function endGame(isWin) {
+                gameState.isGameOver = true;
+                if(isWin){
+                    showMessage('You Win!', 'You have cleared the dungeon!', handleGoToMenu);
+                } else {
+                    showMessage('You Lose!', 'Your adventure has come to an end.', handleGoToMenu);
+                }
+                renderGameState(); 
+            }
+            
+            function handleGoToMenu() {
+                // For this 3D version, we'll just reset the buttons
+                startGameBtn.classList.remove('hidden');
+                helpBtn.classList.remove('hidden');
+                newRoomBtn.classList.add('hidden');
+                skipRoomBtn.classList.add('hidden');
+            }
+
+
+            // --- Event Listeners ---
+            function onPointerMove(event) {
+                // calculate mouse position in normalized device coordinates
+                // (-1 to +1) for both components
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, ThreeScene.getCamera());
+                const intersects = raycaster.intersectObjects(ThreeScene.getScene().children, true);
+
+                if (intersects.length > 0) {
+                    const firstIntersected = intersects[0].object;
+                     if(firstIntersected.userData.card) {
+                        document.body.style.cursor = 'pointer';
+                        // Add hover effect if desired
+                     } else {
+                        document.body.style.cursor = 'default';
+                     }
+                } else {
+                     document.body.style.cursor = 'default';
+                }
+            }
+            
+            function onClick(event) {
+                 raycaster.setFromCamera(mouse, ThreeScene.getCamera());
+                 const intersects = raycaster.intersectObjects(ThreeScene.getScene().children, true);
+
+                 if (intersects.length > 0) {
+                    const firstIntersected = intersects[0].object;
+                    if (firstIntersected.userData.card) {
+                        updateActionsPanel(firstIntersected);
+                    }
+                 } else {
+                     // Clicked on empty space, deselect
+                     updateActionsPanel(null);
+                 }
+            }
+            
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('click', onClick);
+
+            startGameBtn.addEventListener('click', handleStartNewGame);
+            newRoomBtn.addEventListener('click', handleNewRoom);
+            skipRoomBtn.addEventListener('click', handleSkipRoom);
+            helpBtn.addEventListener('click', () => {
+                const helpText = `
+                    <p class="mb-4">Scoundrel is a solitaire roguelike. Your goal is to clear the dungeon.</p>
+                    <p class="mb-2"><strong>Cards:</strong></p>
+                    <ul class="list-disc list-inside mb-4 text-left">
+                       <li><strong class="text-red-400">Hearts ♥</strong> are potions that restore health.</li>
+                       <li><strong class="text-red-400">Diamonds ♦</strong> are weapons. You must equip them.</li>
+                       <li><strong class="text-slate-400">Clubs ♣ & Spades ♠</strong> are monsters you must fight.</li>
+                    </ul>
+                    <p>Click on a card in the room to see available actions.</p>
+                `;
+                showMessage('How to Play', helpText, () => {});
+            });
+        });
+
+    </script>
+</body>
+</html>
