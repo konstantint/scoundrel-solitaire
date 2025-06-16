@@ -339,7 +339,7 @@
                 const context = canvas.getContext('2d');
                 
                 context.fillStyle = textColor;
-                context.font = 'bold 78px "Archivo"';
+                context.font = 'bold 78px "Archivo Black"';
                 context.textAlign = 'center';
                 context.textBaseline = 'middle';
                 
@@ -797,10 +797,32 @@
                 renderGameState();
             }
 
-            function onPointerMove(event) {
-                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-                mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+            // --- MOBILE/TOUCH SUPPORT ---
+            function updateMouseCoords(event) {
+                // Use the appropriate coordinates based on event type
+                const touch = event.touches ? event.touches[0] : null;
+                const clientX = touch ? touch.clientX : event.clientX;
+                const clientY = touch ? touch.clientY : event.clientY;
 
+                mouse.x = (clientX / window.innerWidth) * 2 - 1;
+                mouse.y = - (clientY / window.innerHeight) * 2 + 1;
+            }
+
+            function handleInteraction(event) {
+                updateMouseCoords(event);
+                raycaster.setFromCamera(mouse, ThreeScene.getCamera());
+                const intersects = raycaster.intersectObjects(ThreeScene.getScene().children, true);
+
+                if (intersects.length > 0) {
+                   const firstIntersected = intersects[0].object;
+                   if (firstIntersected.userData.onClick) {
+                       firstIntersected.userData.onClick();
+                   }
+                }
+            }
+            
+            function onPointerMove(event) {
+                updateMouseCoords(event);
                 raycaster.setFromCamera(mouse, ThreeScene.getCamera());
                 const intersects = raycaster.intersectObjects(ThreeScene.getScene().children, true);
 
@@ -814,20 +836,18 @@
                 document.body.style.cursor = isHoveringInteractive ? 'pointer' : 'default';
             }
             
-            function onClick(event) {
-                 raycaster.setFromCamera(mouse, ThreeScene.getCamera());
-                 const intersects = raycaster.intersectObjects(ThreeScene.getScene().children, true);
-
-                 if (intersects.length > 0) {
-                    const firstIntersected = intersects[0].object;
-                    if (firstIntersected.userData.onClick) {
-                        firstIntersected.userData.onClick();
-                    }
-                 }
-            }
-            
+            window.addEventListener('click', handleInteraction);
             window.addEventListener('pointermove', onPointerMove);
-            window.addEventListener('click', onClick);
+            window.addEventListener('touchstart', (e) => {
+                // prevent screen scrolling
+                e.preventDefault();
+                handleInteraction(e);
+            }, { passive: false });
+            window.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                onPointerMove(e);
+            }, { passive: false });
+
 
             startGameBtn.addEventListener('click', handleStartNewGame);
             helpBtn.addEventListener('click', () => {
