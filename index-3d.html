@@ -339,7 +339,7 @@
                 const context = canvas.getContext('2d');
                 
                 context.fillStyle = textColor;
-                context.font = 'bold 78px "Archivo Black"';
+                context.font = 'bold 78px "Archivo"';
                 context.textAlign = 'center';
                 context.textBaseline = 'middle';
                 
@@ -799,7 +799,6 @@
 
             // --- MOBILE/TOUCH SUPPORT ---
             function updateMouseCoords(event) {
-                // Use the appropriate coordinates based on event type
                 const touch = event.touches ? event.touches[0] : null;
                 const clientX = touch ? touch.clientX : event.clientX;
                 const clientY = touch ? touch.clientY : event.clientY;
@@ -838,12 +837,22 @@
             
             window.addEventListener('click', handleInteraction);
             window.addEventListener('pointermove', onPointerMove);
+
+            // FIX: Smart touch handling to differentiate between UI and Canvas touches
             window.addEventListener('touchstart', (e) => {
-                // prevent screen scrolling
+                // If the touch target is an HTML button, do nothing and let the browser fire the 'click' event.
+                if (e.target.closest('.action-button')) {
+                    return;
+                }
+                // Otherwise, handle it as a 3D canvas interaction.
                 e.preventDefault();
                 handleInteraction(e);
             }, { passive: false });
+
             window.addEventListener('touchmove', (e) => {
+                 if (e.target.closest('.action-button')) {
+                    return;
+                }
                 e.preventDefault();
                 onPointerMove(e);
             }, { passive: false });
