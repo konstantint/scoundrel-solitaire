@@ -7,7 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- UI IMPROVEMENT: Added Archivo Black font for wider, bolder button text -->
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Inter:wght@400;600;700&family=Roboto:wght@700&family=Archivo+Black&display=swap" rel="stylesheet">
     <!-- GSAP for animations -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
     
@@ -278,11 +279,9 @@
 
                 const suitColor = (card.suit === '♥' || card.suit === '♦') ? '#FF0000' : '#000000';
                 ctx.fillStyle = suitColor;
-                // --- UI IMPROVEMENT: Larger font size on cards ---
                 ctx.font = 'bold 72px Inter';
                 ctx.textAlign = 'center';
                 
-                // --- UI IMPROVEMENT: Adjusted text position for larger font ---
                 ctx.fillText(card.rank, 55, 80);
                 ctx.fillText(card.suit, 55, 155);
 
@@ -333,32 +332,55 @@
                 return cardMesh;
             }
 
-            function createInteractiveButton({ text, position, size, userData, color = 0x4a5568, textColor = '#e2e8f0' }) {
-                // --- UI IMPROVEMENT: Higher resolution canvas for sharper text ---
+            function createInteractiveButton({ text, position, size, userData, color = 0x4a5568, textColor = '#FFFFFF' }) {
                 const canvas = document.createElement('canvas');
                 canvas.width = 1024;
                 canvas.height = 256;
                 const context = canvas.getContext('2d');
                 
                 context.fillStyle = textColor;
-                // --- UI IMPROVEMENT: Larger font for button text ---
-                context.font = 'bold 72px Inter';
+                context.font = '900 112px "Archivo Black"';
                 context.textAlign = 'center';
                 context.textBaseline = 'middle';
                 
-                // --- UI IMPROVEMENT: Logic to split long text into two lines ---
                 const words = text.split(' ');
-                if (text.length > 14 && words.length > 1) { // Heuristic for splitting
+                if (text.length > 14 && words.length > 1) { 
                     const midPoint = Math.ceil(words.length / 2);
                     const line1 = words.slice(0, midPoint).join(' ');
                     const line2 = words.slice(midPoint).join(' ');
-                    context.fillText(line1, canvas.width / 2, canvas.height / 2 - 45);
-                    context.fillText(line2, canvas.width / 2, canvas.height / 2 + 45);
+                    context.fillText(line1, canvas.width / 2, canvas.height / 2 - 60);
+                    context.fillText(line2, canvas.width / 2, canvas.height / 2 + 60);
                 } else {
                     context.fillText(text, canvas.width / 2, canvas.height / 2);
                 }
                 
                 const texture = new THREE.CanvasTexture(canvas);
+                
+                // --- FIX for text scaling and distortion ---
+                const textureAspect = canvas.width / canvas.height; // e.g., 1024 / 256 = 4
+                const buttonAspect = size.x / size.z;
+
+                // We want the final rendered aspect ratio to match the texture's aspect ratio.
+                // To do this, we adjust the repeat values of the texture.
+                // We also want to make the text as large as possible (fit vs fill).
+                // In our case, the texture is always wider than the buttons, so we fit to height.
+                if (textureAspect > buttonAspect) {
+                    // Texture is wider than the button face.
+                    // We make the texture's height fit the button's height (repeat.y = 1).
+                    // Then we adjust repeat.x to maintain the texture's aspect ratio.
+                    texture.repeat.y = 1;
+                    texture.repeat.x = buttonAspect / textureAspect;
+                } else {
+                    // Texture is taller/narrower than the button face.
+                    // We make the texture's width fit the button's width (repeat.x = 1).
+                    // Then we adjust repeat.y to maintain the texture's aspect ratio.
+                    texture.repeat.x = 1;
+                    texture.repeat.y = textureAspect / buttonAspect;
+                }
+
+                // Center the texture within the new repeat zone.
+                texture.offset.x = (1 - texture.repeat.x) / 2;
+                texture.offset.y = (1 - texture.repeat.y) / 2;
                 
                 const materials = [
                     new THREE.MeshStandardMaterial({ color: color }), 
@@ -379,8 +401,7 @@
                 return buttonMesh;
             }
             
-            // --- UI IMPROVEMENT: Animation function accepts custom duration ---
-            function animateCardTo(animation, duration = 0.25) { // Default duration is now 2x faster
+            function animateCardTo(animation, duration = 0.25) { 
                  return new Promise(resolve => {
                     gsap.to(animation.target.position, {
                         ...animation.to.position,
@@ -509,7 +530,7 @@
                             size: buttonSize,
                             userData: isEnabled ? { onClick } : {},
                             color: isEnabled ? 0x4a5568 : 0x2d3748,
-                            textColor: isEnabled ? '#e2e8f0' : '#718096'
+                            textColor: isEnabled ? '#FFFFFF' : '#718096'
                         });
                         roomActionButtonsGroup.add(btn);
                     };
@@ -687,7 +708,6 @@
             
             async function handleEquip(card, index) {
                 const animationPromises = [];
-                // --- UI IMPROVEMENT: Use 4x faster animation for discarding old weapon ---
                 const fastDuration = 0.125;
 
                 if (gameState.weapon) {
