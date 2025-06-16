@@ -278,17 +278,19 @@
 
                 const suitColor = (card.suit === '♥' || card.suit === '♦') ? '#FF0000' : '#000000';
                 ctx.fillStyle = suitColor;
-                ctx.font = 'bold 48px Inter';
+                // --- UI IMPROVEMENT: Larger font size on cards ---
+                ctx.font = 'bold 72px Inter';
                 ctx.textAlign = 'center';
                 
-                ctx.fillText(card.rank, 40, 60);
-                ctx.fillText(card.suit, 40, 110);
+                // --- UI IMPROVEMENT: Adjusted text position for larger font ---
+                ctx.fillText(card.rank, 55, 80);
+                ctx.fillText(card.suit, 55, 155);
 
                 ctx.save();
                 ctx.translate(canvas.width, canvas.height);
                 ctx.rotate(Math.PI);
-                ctx.fillText(card.rank, 40, 60);
-                ctx.fillText(card.suit, 40, 110);
+                ctx.fillText(card.rank, 55, 80);
+                ctx.fillText(card.suit, 55, 155);
                 ctx.restore();
 
                 return new THREE.CanvasTexture(canvas);
@@ -332,16 +334,29 @@
             }
 
             function createInteractiveButton({ text, position, size, userData, color = 0x4a5568, textColor = '#e2e8f0' }) {
+                // --- UI IMPROVEMENT: Higher resolution canvas for sharper text ---
                 const canvas = document.createElement('canvas');
-                canvas.width = 512;
-                canvas.height = 128; // Thinner button
+                canvas.width = 1024;
+                canvas.height = 256;
                 const context = canvas.getContext('2d');
                 
                 context.fillStyle = textColor;
-                context.font = 'bold 48px Inter';
+                // --- UI IMPROVEMENT: Larger font for button text ---
+                context.font = 'bold 72px Inter';
                 context.textAlign = 'center';
                 context.textBaseline = 'middle';
-                context.fillText(text, canvas.width / 2, canvas.height / 2);
+                
+                // --- UI IMPROVEMENT: Logic to split long text into two lines ---
+                const words = text.split(' ');
+                if (text.length > 14 && words.length > 1) { // Heuristic for splitting
+                    const midPoint = Math.ceil(words.length / 2);
+                    const line1 = words.slice(0, midPoint).join(' ');
+                    const line2 = words.slice(midPoint).join(' ');
+                    context.fillText(line1, canvas.width / 2, canvas.height / 2 - 45);
+                    context.fillText(line2, canvas.width / 2, canvas.height / 2 + 45);
+                } else {
+                    context.fillText(text, canvas.width / 2, canvas.height / 2);
+                }
                 
                 const texture = new THREE.CanvasTexture(canvas);
                 
@@ -364,16 +379,17 @@
                 return buttonMesh;
             }
             
-            function animateCardTo(animation) {
+            // --- UI IMPROVEMENT: Animation function accepts custom duration ---
+            function animateCardTo(animation, duration = 0.25) { // Default duration is now 2x faster
                  return new Promise(resolve => {
                     gsap.to(animation.target.position, {
                         ...animation.to.position,
-                        duration: 0.5,
+                        duration: duration,
                         ease: 'power2.inOut'
                     });
                      gsap.to(animation.target.rotation, {
                         ...animation.to.rotation,
-                        duration: 0.5,
+                        duration: duration,
                         ease: 'power2.inOut',
                         onComplete: resolve
                     });
@@ -635,7 +651,6 @@
 
                 const roomCards = gameState.room.filter(c => c);
                 
-                // --- Animate cards back to the general deck area ---
                 const animationPromises = roomCards.map(card => {
                     const card3d = ThreeScene.getCardObjects().get(card.id);
                     return ThreeScene.animateCardTo({
@@ -652,20 +667,16 @@
                 });
                 await Promise.all(animationPromises);
 
-                // --- Logically move cards to the bottom of the deck ---
                 gameState.deck.unshift(...roomCards);
                 gameState.room = [null, null, null, null];
 
-                // --- FIX: Resynchronize the entire visual deck after logic update ---
                 gameState.deck.forEach((card, index) => {
                     const card3d = ThreeScene.getCardObjects().get(card.id);
                     if (card3d) {
-                        // Instantly set the correct height for every card in the deck
                         card3d.position.y = ThreeScene.POSITIONS.DECK.y + index * 0.02;
                     }
                 });
 
-                // --- Deal a new room ---
                 await handleNewRoom(false);
             }
             
@@ -675,27 +686,31 @@
             }
             
             async function handleEquip(card, index) {
+                const animationPromises = [];
+                // --- UI IMPROVEMENT: Use 4x faster animation for discarding old weapon ---
+                const fastDuration = 0.125;
+
                 if (gameState.weapon) {
                     const oldWeaponCard3d = ThreeScene.getCardObjects().get(gameState.weapon.id);
                     gameState.discard.push(gameState.weapon);
-                     await ThreeScene.animateCardTo({
+                     animationPromises.push(ThreeScene.animateCardTo({
                         target: oldWeaponCard3d,
                         to: {
                              position: { x: ThreeScene.POSITIONS.DISCARD.x, y: ThreeScene.POSITIONS.DISCARD.y + gameState.discard.length * 0.02, z: ThreeScene.POSITIONS.DISCARD.z },
                              rotation: { y: Math.PI, x: -Math.PI / 2 }
                         }
-                    });
+                    }, fastDuration));
 
                     for (const slain of gameState.monstersSlain) {
                         const slainCard3d = ThreeScene.getCardObjects().get(slain.id);
                         gameState.discard.push(slain);
-                         await ThreeScene.animateCardTo({
+                         animationPromises.push(ThreeScene.animateCardTo({
                             target: slainCard3d,
                             to: {
                                 position: { x: ThreeScene.POSITIONS.DISCARD.x, y: ThreeScene.POSITIONS.DISCARD.y + gameState.discard.length * 0.02, z: ThreeScene.POSITIONS.DISCARD.z },
                                 rotation: { y: Math.PI, x: -Math.PI / 2 }
                             }
-                        });
+                        }, fastDuration));
                     }
                 }
                 
@@ -704,13 +719,15 @@
                 const card3d = ThreeScene.getCardObjects().get(card.id);
                 
                 gameState.room[index] = null;
-                 await ThreeScene.animateCardTo({
+                animationPromises.push(ThreeScene.animateCardTo({
                     target: card3d,
                     to: {
                         position: ThreeScene.POSITIONS.WEAPON,
                         rotation: { y: 0, x: -Math.PI / 2, z: 0 }
                     }
-                });
+                }));
+
+                await Promise.all(animationPromises);
                 
                 gameState.canSkip = false;
                 gameState.turnsInRoom++;
