@@ -339,12 +339,12 @@
                 const context = canvas.getContext('2d');
                 
                 context.fillStyle = textColor;
-                context.font = '900 112px "Archivo Black"';
+                context.font = 'bold 78px "Archivo"';
                 context.textAlign = 'center';
                 context.textBaseline = 'middle';
                 
                 const words = text.split(' ');
-                if (text.length > 14 && words.length > 1) { 
+                if (text.length > 7 && words.length > 1) { 
                     const midPoint = Math.ceil(words.length / 2);
                     const line1 = words.slice(0, midPoint).join(' ');
                     const line2 = words.slice(midPoint).join(' ');
@@ -481,11 +481,11 @@
                 const deckHeight = ThreeScene.POSITIONS.DECK.y + (gameState.deck.length * 0.02);
                 const buttonYPos = deckHeight + 0.15;
                 const buttonPosition = new THREE.Vector3(ThreeScene.POSITIONS.DECK.x, buttonYPos, ThreeScene.POSITIONS.DECK.z);
-                const buttonSize = { x: 1.5, y: 0.05, z: 2.1 };
+                const buttonSize = { x: 1.5, y: 0.05, z: 1.5 };
 
                 if (canProceed && gameState.deck.length > 0) {
                      const btn = ThreeScene.createInteractiveButton({
-                        text: 'Enter Next Room',
+                        text: 'Enter Room',
                         position: buttonPosition,
                         size: buttonSize,
                         userData: { onClick: () => handleNewRoom(true) }
